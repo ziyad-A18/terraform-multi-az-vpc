@@ -14,7 +14,7 @@ secrets = boto3.client("secretsmanager", region_name=REGION)
 
 
 def get_parameter(name):
-    response = ssm.get_parameter(Name=name)
+    response = ssm.get_parameter(Name=name, WithDecryption=True)
     return response["Parameter"]["Value"]
 
 
@@ -78,6 +78,3 @@ def database_check():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
-
-
-    

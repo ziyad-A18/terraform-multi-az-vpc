@@ -363,7 +363,7 @@ resource "aws_iam_role_policy" "ec2_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = aws_secretsmanager_secret.db_credentials.arn
+        Resource = "${aws_secretsmanager_secret.db_credentials.arn}*"   
       }
     ]
   })
@@ -409,14 +409,18 @@ EOF
   }
 }
 
-# Data Source - يجيب آخر نسخة Amazon Linux تلقائيًا
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["al2023-ami-2023*-x86_64"]
+  }
+
+  filter {
+    name   = "is-public"
+    values = ["true"]
   }
 }
 
