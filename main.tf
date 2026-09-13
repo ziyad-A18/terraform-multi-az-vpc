@@ -244,8 +244,8 @@ resource "aws_security_group" "rds" {
 
 # Secrets Manager
 resource "random_password" "db_password" {
-  length  = 16
-  special = true
+  length           = 16
+  special          = true
   override_special = "!#$%^&*()-_=+[]{}<>:?"
 }
 
@@ -298,7 +298,7 @@ resource "aws_db_instance" "main" {
 
 resource "aws_ssm_parameter" "db_endpoint" {
   name  = "/ziyad-project/database/endpoint"
-  type  =  "SecureString"
+  type  = "SecureString"
   value = aws_db_instance.main.address
 }
 
@@ -377,6 +377,71 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 
 
 
+# Launch Template - "القالب" اللي يحدد كيف EC2 يتنشأ ويشتغل
+resource "aws_launch_template" "app" {
+  name_prefix   = "app-launch-template-"
+  image_id      = data.aws_ami.amazon_linux.id
+  instance_type = "t2.micro"
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_profile.name
+  }
+
+  vpc_security_group_ids = [aws_security_group.ec2.id]
+
+  user_data = base64encode(<<-EOF
+  #!/bin/bash
+  yum update -y
+  yum install -y python3-pip
+  pip3 install flask boto3 psycopg2-binary
+
+  cat << 'PYEOF' > /home/ec2-user/app.py
+  ${file("app.py")}
+  PYEOF
+
+  export AWS_REGION=us-east-1
+  nohup python3 /home/ec2-user/app.py > /var/log/app.log 2>&1 &
+EOF
+  )
+
+  tags = {
+    Name = "app-launch-template"
+  }
+}
+
+# Data Source - يجيب آخر نسخة Amazon Linux تلقائيًا
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+# Auto Scaling Group - يدير عدد الـ EC2 instances تلقائيًا
+resource "aws_autoscaling_group" "app" {
+  name                = "app-asg"
+  min_size            = 2
+  max_size            = 4
+  desired_capacity    = 2
+  vpc_zone_identifier = [for s in aws_subnet.private_app : s.id]
+
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "app-instance"
+    propagate_at_launch = true
+  }
+}
 
 
-
+resource "aws_iam_role_policy_attachment" "ssm_managed_instance" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
