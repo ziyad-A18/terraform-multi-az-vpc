@@ -250,7 +250,8 @@ resource "random_password" "db_password" {
 }
 
 resource "aws_secretsmanager_secret" "db_credentials" {
-  name = "ziyad-project/db-credentials"
+  name = "ziyad-project/db-credentials-v2"
+  recovery_window_in_days = 0
 
   tags = {
     Name = "db-credentials"
@@ -430,6 +431,7 @@ resource "aws_autoscaling_group" "app" {
   min_size            = 2
   max_size            = 4
   desired_capacity    = 2
+  target_group_arns = [aws_lb_target_group.app.arn]
   vpc_zone_identifier = [for s in aws_subnet.private_app : s.id]
 
   launch_template {
@@ -449,3 +451,52 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_instance" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
+
+
+
+# Application Load Balancer
+resource "aws_lb" "app" {
+  name               = "app-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = [for s in aws_subnet.public : s.id]
+
+  tags = {
+    Name = "app-alb"
+  }
+}
+
+# Target Group 
+resource "aws_lb_target_group" "app" {
+  name     = "app-target-group"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    matcher             = "200"
+  }
+
+  tags = {
+    Name = "app-target-group"
+  }
+}
+
+# Listener 
+resource "aws_lb_listener" "app" {
+  load_balancer_arn = aws_lb.app.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+}
+
