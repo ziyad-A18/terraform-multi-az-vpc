@@ -2,7 +2,7 @@
 
 A fully automated, highly available AWS infrastructure built entirely with **Terraform** (Infrastructure as Code), running a real Flask application connected end-to-end to a PostgreSQL database — verified live from the public internet.
 
-This project was built as a hands-on complement to learn Terraform , applying every core exam concept (state management, workspaces, modules, variables, provisioning, security) to a real, working system rather than isolated exercises.
+This project was built as a hands-on complement to learn Terraform , applying every core of terraform concept (state management, workspaces, modules, variables, provisioning, security) to a real, working system rather than isolated exercises.
 
 ---
 
